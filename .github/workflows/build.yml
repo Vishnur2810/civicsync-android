@@ -1,0 +1,96 @@
+name: Build Android app
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Keep the same signing key between builds so new versions install over old ones
+      - uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: civicsync-signing-key-v1
+
+      - name: Create the Capacitor Android project
+        run: |
+          npm init -y > /dev/null
+          npm install @capacitor/core@8.5.3 @capacitor/cli@8.5.3 @capacitor/android@8.5.3 @capacitor/app@8.1.2
+          npx cap add android
+
+      - name: App icon and splash screen
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq libcairo2 > /dev/null
+          python3 -m venv .venv
+          .venv/bin/pip install --quiet cairosvg pillow
+          .venv/bin/python resources/make_icons.py android/app/src/main/res
+
+      - name: Permissions, version and signing
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          run = "${{ github.run_number }}"
+
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          m = manifest.read_text()
+          extra = """
+              <uses-permission android:name="android.permission.CAMERA" />
+              <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+              <uses-feature android:name="android.hardware.camera" android:required="false" />
+              <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+          """
+          anchor = '<uses-permission android:name="android.permission.INTERNET" />'
+          assert anchor in m, "manifest layout changed"
+          manifest.write_text(m.replace(anchor, anchor + extra))
+
+          gradle = Path("android/app/build.gradle")
+          g = gradle.read_text()
+          assert "versionCode 1" in g and 'versionName "1.0"' in g and "minifyEnabled false" in g, "build.gradle layout changed"
+          g = g.replace("versionCode 1", f"versionCode {run}", 1)
+          g = g.replace('versionName "1.0"', f'versionName "1.0.{run}"', 1)
+          g = g.replace("minifyEnabled false", "minifyEnabled false\n            signingConfig signingConfigs.debug", 1)
+          gradle.write_text(g)
+          PY
+          npx cap sync android
+
+      - name: Build APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+          cp app/build/outputs/apk/release/app-release.apk ../CivicSync.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CivicSync-apk
+          path: CivicSync.apk
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: CivicSync for Android 1.0.${{ github.run_number }}
+          make_latest: true
+          files: CivicSync.apk
+          body: |
+            **Download:** CivicSync.apk below. On your phone: open it, allow "Install unknown apps" for your browser when asked, then Install.
+
+            The app connects to a CivicSync server. Start **CivicSync (Public link)** on the laptop and paste the `https://….trycloudflare.com` address into the app.
