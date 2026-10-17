@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<meta name="color-scheme" content="light dark" />
+<title>CivicSync</title>
+<style>
+  :root {
+    --ink: #0b1d2a; --muted: #4f6676; --card: rgba(255,255,255,.9); --line: rgba(11,29,42,.12);
+    --primary: #0a84ff; --primary-2: #5e5ce6; --danger: #d92d20; --ok: #1f9d52;
+    --field: #f3f6f9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --ink: #eaf2f5; --muted: #9db0ba; --card: rgba(20,30,38,.92); --line: rgba(255,255,255,.1); --field: rgba(255,255,255,.06); --danger: #ff6961; }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    font-family: -apple-system, 'Segoe UI', Roboto, system-ui, sans-serif; color: var(--ink);
+    background: linear-gradient(160deg, #0a84ff 0%, #4f5bd5 50%, #6f4fd8 100%) fixed;
+    min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column;
+  }
+  .hero { color: #fff; padding: 44px 24px 26px; position: relative; overflow: hidden; }
+  .hero::after { content: ''; position: absolute; width: 300px; height: 300px; border-radius: 50%; right: -110px; top: -120px; background: rgba(255,255,255,.13); }
+  .brand { display: flex; align-items: center; gap: 10px; font-size: 1.35rem; font-weight: 800; letter-spacing: -.02em; }
+  .brand b { color: #c9f2ff; }
+  .hero h1 { margin: 26px 0 8px; font-size: 1.75rem; line-height: 1.15; letter-spacing: -.03em; }
+  .hero p { margin: 0; color: rgba(255,255,255,.86); line-height: 1.5; font-size: .98rem; }
+  .sheet {
+    flex: 1; background: var(--card); border-radius: 28px 28px 0 0; padding: 26px 20px 28px;
+    box-shadow: 0 -10px 40px rgba(0,0,0,.18); display: flex; flex-direction: column; gap: 14px;
+  }
+  label { font-weight: 700; font-size: .88rem; color: var(--muted); }
+  .row { display: flex; gap: 8px; }
+  input {
+    flex: 1; min-width: 0; font: inherit; font-size: 1rem; color: var(--ink); background: var(--field);
+    border: 1.5px solid var(--line); border-radius: 16px; padding: 14px 14px; outline: none;
+  }
+  input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(10,132,255,.18); }
+  button { font: inherit; cursor: pointer; border: 0; }
+  .ghost { background: var(--field); color: var(--ink); border: 1.5px solid var(--line); border-radius: 16px; padding: 0 14px; font-weight: 700; }
+  .primary {
+    height: 52px; border-radius: 999px; color: #fff; font-weight: 800; font-size: 1rem;
+    background: linear-gradient(180deg, #2f96ff, #0a6fe0); box-shadow: 0 8px 22px rgba(10,132,255,.35);
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .primary:disabled { opacity: .6; }
+  .msg { border-radius: 14px; padding: 12px 14px; font-size: .9rem; line-height: 1.45; display: none; }
+  .msg.show { display: block; }
+  .msg.error { background: rgba(217,45,32,.1); color: var(--danger); }
+  .msg.info { background: rgba(10,132,255,.1); color: var(--primary); }
+  .recent { display: flex; flex-direction: column; gap: 8px; }
+  .recent h2 { margin: 6px 0 0; font-size: .88rem; color: var(--muted); }
+  .chip {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left;
+    background: var(--field); color: var(--ink); border: 1.5px solid var(--line); border-radius: 14px; padding: 12px 14px;
+    font-size: .9rem; word-break: break-all;
+  }
+  .chip span { color: var(--muted); font-size: .78rem; white-space: nowrap; }
+  .help { margin-top: auto; font-size: .85rem; color: var(--muted); line-height: 1.5; }
+  .help ol { margin: 6px 0 0; padding-left: 20px; }
+  .help code { background: var(--field); padding: 1px 6px; border-radius: 6px; font-size: .82rem; }
+  .connecting { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 18px; color: #fff; text-align: center; padding: 24px; background: linear-gradient(160deg, #0a84ff, #6f4fd8); }
+  .connecting.show { display: flex; }
+  .connecting small { opacity: .85; word-break: break-all; }
+  .spin { width: 42px; height: 42px; border-radius: 50%; border: 4px solid rgba(255,255,255,.3); border-top-color: #fff; animation: spin .8s linear infinite; }
+  .connecting button { background: rgba(255,255,255,.18); color: #fff; border: 1px solid rgba(255,255,255,.4); border-radius: 999px; padding: 10px 18px; font-weight: 700; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+  <header class="hero">
+    <div class="brand">
+      <svg width="34" height="34" viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c7d2fe"/><stop offset="1" stop-color="#6ee7b7"/></linearGradient></defs><path d="M24 3C14.6 3 7 10.4 7 19.6 7 31.8 24 45 24 45s17-13.2 17-25.4C41 10.4 33.4 3 24 3z" fill="url(#g)"/><circle cx="24" cy="19.5" r="8.5" fill="#fff"/><path d="M20 19.8l2.8 2.8 5.4-5.6" fill="none" stroke="#4F46E5" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Civic<b>Sync</b></span>
+    </div>
+    <h1>Report it. Route it.<br />Prove it's fixed.</h1>
+    <p>Connect to the CivicSync server to report and track civic issues in Chennai.</p>
+  </header>
+
+  <main class="sheet">
+    <form id="form" autocomplete="off" novalidate>
+      <label for="server">Server address</label>
+      <div class="row" style="margin-top:8px">
+        <input id="server" type="url" inputmode="url" placeholder="https://….trycloudflare.com" autocapitalize="off" spellcheck="false" />
+        <button type="button" class="ghost" id="paste">Paste</button>
+      </div>
+      <div style="height:12px"></div>
+      <button class="primary" id="go" style="width:100%">Connect</button>
+    </form>
+    <div id="msg" class="msg"></div>
+    <div id="recent" class="recent"></div>
+    <div class="help">
+      <strong>Where do I get the address?</strong>
+      <ol>
+        <li>On the CivicSync laptop, start <em>CivicSync (Public link)</em>.</li>
+        <li>Copy the <code>https://…trycloudflare.com</code> address it prints.</li>
+        <li>Paste it here. Typing just the words before <code>.trycloudflare.com</code> also works.</li>
+      </ol>
+    </div>
+  </main>
+
+  <div class="connecting" id="connecting">
+    <div class="spin"></div>
+    <div><strong>Connecting to CivicSync…</strong><br /><small id="connecting-to"></small></div>
+    <button type="button" id="change">Change server</button>
+  </div>
+
+<script>
+(function () {
+  var KEY = 'civicsync.servers';
+  var ATTEMPT = 'civicsync.lastAttempt';
+  var $ = function (id) { return document.getElementById(id); };
+  var input = $('server'), msg = $('msg'), go = $('go');
+  var cancelled = false;
+
+  function load() { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { return []; } }
+  function save(list) { try { localStorage.setItem(KEY, JSON.stringify(list.slice(0, 4))); } catch (e) {} }
+
+  // Accept full URLs, bare hosts, or just the trycloudflare words
+  function normalize(raw) {
+    var v = (raw || '').trim();
+    var found = v.match(/https?:\/\/[^\s"'<>]+/i);
+    if (found) v = found[0];
+    if (!/^https?:\/\//i.test(v)) {
+      v = v.split(/[\/?#\s]/)[0];
+      if (/^[a-z0-9]+(-[a-z0-9]+)+$/i.test(v)) v += '.trycloudflare.com';
+      v = (/^(localhost|\d{1,3}(\.\d{1,3}){3})(:\d+)?$/.test(v) ? 'http://' : 'https://') + v;
+    }
+    try {
+      var u = new URL(v);
+      if (u.hostname.indexOf('.') < 0 && u.hostname !== 'localhost') return '';
+      return u.protocol + '//' + u.host;
+    } catch (e) { return ''; }
+  }
+
+  // The app opens these hosts inside itself (see allowNavigation in capacitor.config.json)
+  function supported(base) {
+    var host = new URL(base).hostname;
+    return /\.trycloudflare\.com$/.test(host) || /^(192\.168|10|172\.(1[6-9]|2\d|3[01]))\./.test(host) || /\.(ngrok-free\.app|ngrok\.app|ngrok\.io)$/.test(host);
+  }
+
+  function show(text, kind) { msg.textContent = text; msg.className = 'msg show ' + (kind || 'error'); }
+  function hide() { msg.className = 'msg'; }
+
+  function renderRecent() {
+    var list = load(), box = $('recent');
+    box.innerHTML = '';
+    if (!list.length) return;
+    var h = document.createElement('h2'); h.textContent = 'Recent servers'; box.appendChild(h);
+    list.forEach(function (s) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'chip';
+      b.textContent = s.url.replace(/^https?:\/\//, '');
+      var t = document.createElement('span'); t.textContent = ago(s.at); b.appendChild(t);
+      b.onclick = function () { input.value = s.url; connect(s.url); };
+      box.appendChild(b);
+    });
+  }
+  function ago(ts) {
+    var m = Math.round((Date.now() - ts) / 60000);
+    if (m < 60) return m <= 1 ? 'just now' : m + ' min ago';
+    var h = Math.round(m / 60); if (h < 24) return h + ' h ago';
+    return Math.round(h / 24) + ' d ago';
+  }
+
+  // Ask the server for /api/meta. Uses the native HTTP client inside the app (no CORS limits).
+  function check(base) {
+    var url = base + '/api/meta';
+    var http = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHttp;
+    var req = http
+      ? http.get({ url: url, connectTimeout: 8000, readTimeout: 8000 }).then(function (r) {
+          if (r.status !== 200) throw new Error('status ' + r.status);
+          return typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
+        })
+      : fetch(url).then(function (r) { if (!r.ok) throw new Error('status ' + r.status); return r.json(); });
+    var timeout = new Promise(function (_, reject) { setTimeout(function () { reject(new Error('timeout')); }, 10000); });
+    return Promise.race([req, timeout]).then(function (data) {
+      if (!data || !data.categories) throw new Error('not civicsync');
+      return data;
+    });
+  }
+
+  function connect(raw, auto) {
+    var base = normalize(raw);
+    if (!base) { show('That doesn\'t look like a web address. Paste the https://… link from the CivicSync laptop.'); return; }
+    if (!supported(base)) { show('The app works with CivicSync public links (…trycloudflare.com) or a laptop on the same Wi-Fi (192.168.…). Open other addresses in your browser.'); return; }
+    hide();
+    cancelled = false;
+    go.disabled = true;
+    $('connecting-to').textContent = base.replace(/^https?:\/\//, '');
+    $('connecting').classList.add('show');
+    try { sessionStorage.setItem(ATTEMPT, String(Date.now())); } catch (e) {}
+    check(base).then(function () {
+      if (cancelled) return;
+      save([{ url: base, at: Date.now() }].concat(load().filter(function (s) { return s.url !== base; })));
+      window.location.replace(base + '/');
+    }).catch(function (e) {
+      if (cancelled) return;
+      $('connecting').classList.remove('show');
+      go.disabled = false;
+      input.value = base;
+      show(
+        e && e.message === 'not civicsync'
+          ? 'Something answered at that address, but it isn\'t CivicSync.'
+          : auto
+            ? 'Couldn\'t reach ' + base.replace(/^https?:\/\//, '') + '. The laptop may be off, or the public link has changed. Paste the new address.'
+            : 'Couldn\'t reach that server. Check the laptop is running CivicSync (Public link) and the address is current.'
+      );
+      renderRecent();
+    });
+  }
+
+  $('form').onsubmit = function (e) { e.preventDefault(); connect(input.value); };
+  $('change').onclick = function () {
+    cancelled = true; go.disabled = false;
+    $('connecting').classList.remove('show');
+    input.focus();
+  };
+  $('paste').onclick = function () {
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      navigator.clipboard.readText().then(function (t) { input.value = normalize(t) || t; }).catch(function () { input.focus(); show('Long-press the box and choose Paste.', 'info'); });
+    } else { input.focus(); show('Long-press the box and choose Paste.', 'info'); }
+  };
+
+  renderRecent();
+  var last = load()[0];
+  if (last) input.value = last.url;
+  // Reconnect automatically on launch, but not if we were just sent back here by a failed page load
+  var lastAttempt = 0;
+  try { lastAttempt = Number(sessionStorage.getItem(ATTEMPT) || 0); } catch (e) {}
+  if (last && Date.now() - lastAttempt > 15000) connect(last.url, true);
+  else if (last) show('Couldn\'t load ' + last.url.replace(/^https?:\/\//, '') + '. If the laptop restarted, the public link has changed. Paste the new address.');
+})();
+</script>
+</body>
+</html>
