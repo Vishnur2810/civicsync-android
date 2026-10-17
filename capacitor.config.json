@@ -1,0 +1,26 @@
+{
+  "appId": "io.github.vishnur2810.civicsync",
+  "appName": "CivicSync",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https",
+    "errorPath": "index.html",
+    "cleartext": true,
+    "allowNavigation": [
+      "*.trycloudflare.com",
+      "*.ngrok-free.app",
+      "*.ngrok.app",
+      "*.ngrok.io",
+      "192.168.*.*",
+      "10.*.*.*",
+      "172.*.*.*"
+    ]
+  },
+  "android": {
+    "backgroundColor": "#0b1d2a"
+  },
+  "plugins": {
+    "SystemBars": { "style": "DARK" },
+    "CapacitorHttp": { "enabled": false }
+  }
+}
